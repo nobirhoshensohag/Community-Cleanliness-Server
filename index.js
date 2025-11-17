@@ -30,14 +30,12 @@ app.get("/", (req, res) => {
 
 async function run() {
   try {
-    
-    await client.connect();
+    // await client.connect();
 
-
-     const db = client.db("issue_report");
+    const db = client.db("issue_report");
     const issueCollection = db.collection("issues");
     const contributionCollection = db.collection("contribution");
-     const usersCollection = db.collection("users");
+    const usersCollection = db.collection("users");
 
     // USERS APIs
     app.post("/users", async (req, res) => {
@@ -48,7 +46,7 @@ async function run() {
 
       if (existingUser) {
         res.send({
-          message: "user already exits. do not need to insert again",
+          message: "user already exists. do not need to insert again",
         });
       } else {
         const result = await usersCollection.insertOne(newUser);
@@ -56,15 +54,22 @@ async function run() {
       }
     });
 
-    //issue related APIs
+    app.get("/users", async (req, res) => {
+      const cursor = usersCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // ISSUE APIs (no token verify)
     app.post("/issues", async (req, res) => {
       const newIssue = req.body;
       const result = await issueCollection.insertOne(newIssue);
       res.send(result);
     });
 
-    app.get("/issues", async (req, res) => {
-       const email = req.query.email;
+    app.get("/myIssue", async (req, res) => {
+      const { email } = req.query;
+
       const query = {};
       if (email) {
         query.email = email;
@@ -75,7 +80,23 @@ async function run() {
       res.send(result);
     });
 
-     app.patch("/issues/:id", async (req, res) => {
+    app.get("/issues", async (req, res) => {
+      const { category, status } = req.query;
+      const query = {};
+
+      if (category && category !== "all") {
+        query.category = category;
+      }
+      if (status && status !== "all") {
+        query.status = status;
+      }
+
+      const cursor = issueCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.patch("/issues/:id", async (req, res) => {
       const id = req.params.id;
       const updatedIssue = req.body;
       const query = { _id: new ObjectId(id) };
@@ -84,28 +105,30 @@ async function run() {
           ...updatedIssue,
         },
       };
-      const options = {};
-      const result = await issueCollection.updateOne(query, update, options);
+      const result = await issueCollection.updateOne(query, update);
       res.send(result);
     });
 
     app.get("/latest-issues", async (req, res) => {
-       const query = { status: { $exists: true } };
-      const projectFields = {
-        _id: 1,
-        title: 1,
-        description: 1,
-        category: 1,
-        location: 1,
-        image: 1,
-        email: 1,
-      };
-      const cursor = issueCollection.find(query).project(projectFields);
+      const cursor = issueCollection
+        .find({})
+        .project({
+          _id: 1,
+          title: 1,
+          description: 1,
+          category: 1,
+          location: 1,
+          image: 1,
+          email: 1,
+        })
+        .sort({ _id: -1 })
+        .limit(6);
+
       const result = await cursor.toArray();
       res.send(result);
     });
 
-   app.get("/issues/:id", async (req, res) => {
+    app.get("/issues/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await issueCollection.findOne(query);
@@ -119,42 +142,41 @@ async function run() {
       res.send(result);
     });
 
-    //contribution related APIs
+    // CONTRIBUTION APIs
     app.post("/contributions", async (req, res) => {
       const newContribution = req.body;
       const result = await contributionCollection.insertOne(newContribution);
       res.send(result);
     });
-    
+
     app.get("/contributions/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { issueId: id };
-      const cursor = contributionCollection.find(query);
+      const cursor = contributionCollection.find({ issueId: id });
       const result = await cursor.toArray();
       res.send(result);
     });
 
-     app.get("/contributions", async (req, res) => {
+    app.get("/contributions", async (req, res) => {
       const email = req.query.email;
       const query = {};
+
       if (email) {
         query.email = email;
       }
+
       const cursor = contributionCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+    console.log("MongoDB Connected Successfully");
   } finally {
-    
-    
+    // await client.close();
   }
 }
+
 run().catch(console.dir);
 
-
-
 app.listen(port, () => {
-  console.log(`Server is running on port: ${port}`);
+  console.log(`Server running on port: ${port}`);
 });
