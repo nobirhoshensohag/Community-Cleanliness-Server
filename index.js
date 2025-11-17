@@ -90,6 +90,7 @@ async function run() {
     });
 
     app.get("/latest-issues", async (req, res) => {
+       const query = { status: { $exists: true } };
       const projectFields = {
         _id: 1,
         title: 1,
@@ -99,12 +100,8 @@ async function run() {
         image: 1,
         email: 1,
       };
-      const query = issueCollection
-        .find()
-        .limit(6)
-        .skip(7)
-        .project(projectFields);
-      const result = await query.toArray();
+      const cursor = issueCollection.find(query).project(projectFields);
+      const result = await cursor.toArray();
       res.send(result);
     });
 
@@ -112,6 +109,13 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await issueCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.delete("/issues/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await issueCollection.deleteOne(query);
       res.send(result);
     });
 
