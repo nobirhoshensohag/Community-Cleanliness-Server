@@ -23,10 +23,50 @@ app.use(cors());
 app.use(express.json());
 
 
+app.get("/", (req, res) => {
+  res.send("Smart server is running");
+});
+
+
 async function run() {
   try {
     
     await client.connect();
+
+
+     const db = client.db("issue_report");
+    const issueCollection = db.collection("issues");
+    const contributionCollection = db.collection("contribution");
+
+    //issue related APIs
+    app.post("/issues", async (req, res) => {
+      const newIssue = req.body;
+      const result = await issueCollection.insertOne(newIssue);
+      res.send(result);
+    });
+
+    app.get("/latest-issues", async (req, res) => {
+      const projectFields = {
+        title: 1,
+        description: 1,
+        category: 1,
+        location: 1,
+        image: 1,
+      };
+      const query = issueCollection
+        .find()
+        .limit(6)
+        .skip(7)
+        .project(projectFields);
+      const result = await query.toArray();
+      res.send(result);
+    });
+
+    app.get("/issues", async (req, res) => {
+      const cursor = issueCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
     
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -37,9 +77,7 @@ async function run() {
 }
 run().catch(console.dir);
 
-app.get("/", (req, res) => {
-  res.send("Smart server is running");
-});
+
 
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
