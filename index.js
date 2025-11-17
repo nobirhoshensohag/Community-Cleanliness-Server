@@ -37,6 +37,24 @@ async function run() {
      const db = client.db("issue_report");
     const issueCollection = db.collection("issues");
     const contributionCollection = db.collection("contribution");
+     const usersCollection = db.collection("users");
+
+    // USERS APIs
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      const email = req.body.email;
+      const query = { email: email };
+      const existingUser = await usersCollection.findOne(query);
+
+      if (existingUser) {
+        res.send({
+          message: "user already exits. do not need to insert again",
+        });
+      } else {
+        const result = await usersCollection.insertOne(newUser);
+        res.send(result);
+      }
+    });
 
     //issue related APIs
     app.post("/issues", async (req, res) => {
@@ -45,8 +63,15 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/issues", async (req, res) => {
+      const cursor = issueCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     app.get("/latest-issues", async (req, res) => {
       const projectFields = {
+        _id: 1,
         title: 1,
         description: 1,
         category: 1,
@@ -62,9 +87,17 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/issues", async (req, res) => {
-      const cursor = issueCollection.find();
-      const result = await cursor.toArray();
+   app.get("/issues/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await issueCollection.findOne(query);
+      res.send(result);
+    });
+
+    //contribution related APIs
+    app.post("/contributions", async (req, res) => {
+      const newContribution = req.body;
+      const result = await contributionCollection.insertOne(newContribution);
       res.send(result);
     });
     
